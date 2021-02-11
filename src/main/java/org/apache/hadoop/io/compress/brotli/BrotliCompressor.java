@@ -58,7 +58,7 @@ public class BrotliCompressor implements Compressor {
   }
 
   private boolean isOutputBufferEmpty() {
-    return (outBuffer.remaining() == 0);
+    return outBuffer.position() == 0;
   }
 
   private boolean hasMoreOutput() {
@@ -123,15 +123,17 @@ public class BrotliCompressor implements Compressor {
     }
 
     ByteBuffer toCompress = inBuffer.duplicate();
-    boolean last = true;
-    if (toCompress.remaining() > maxBufferSize) {
-      toCompress.limit(toCompress.position() + maxBufferSize);
-      last = false;
-    }
+//    boolean last = true;
+//    if (toCompress.remaining() > maxBufferSize) {
+//      toCompress.limit(toCompress.position() + maxBufferSize);
+//      last = false;
+//    }
 
     final byte[] compressed;
     try {
-      compressed = Encoder.compress(toCompress.array(), parameter);
+      byte[] dst = new byte[toCompress.limit()];
+      toCompress.get(dst);
+      compressed = Encoder.compress(dst, parameter);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -188,7 +190,8 @@ public class BrotliCompressor implements Compressor {
     }
 
     if (hasMoreOutput()) {
-      int bytesToCopy = Math.min(len, outBuffer.remaining());
+      int bytesToCopy = Math.min(len, outBuffer.position());
+      outBuffer.flip();
       outBuffer.get(out, off, bytesToCopy);
       bytesCopied += bytesToCopy;
     }
@@ -227,12 +230,18 @@ public class BrotliCompressor implements Compressor {
 
   @Override
   public void reinit(Configuration conf) {
+    this.parameter
+            .setQuality(-1)
+            .setWindow(-1);
+    this.maxBufferSize = 16384;
+
     if (conf != null) {
       this.parameter
           .setQuality(conf.getInt(BrotliCodec.QUALITY_LEVEL_PROP, -1))
           .setWindow(conf.getInt(BrotliCodec.LZ_WINDOW_SIZE_PROP, -1));
-      this.maxBufferSize = conf.getInt(BrotliCodec.MAX_BUFFER_SIZE, 16384);
+      this.maxBufferSize = conf.getInt(BrotliCodec.MAX_BUFFER_SIZE, this.maxBufferSize);
     }
+    this.outBuffer = ByteBuffer.allocateDirect(this.maxBufferSize);
   }
 /*
   @Override

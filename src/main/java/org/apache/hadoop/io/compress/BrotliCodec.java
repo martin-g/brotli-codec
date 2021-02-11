@@ -39,12 +39,29 @@ public class BrotliCodec extends Configured implements CompressionCodec {
 
   private static boolean LOADED_NATIVE_LIB = false;
 
-  public BrotliCodec() throws Throwable {
+  static {
+    loadNatives();
+  }
+
+  public BrotliCodec() {
+  }
+
+  public static void loadNatives() {
     if (!BrotliCodec.LOADED_NATIVE_LIB) {
       synchronized (BrotliCodec.class) {
         if (!BrotliCodec.LOADED_NATIVE_LIB) {
-          Brotli4jLoader.ensureAvailability();
-          BrotliCodec.LOADED_NATIVE_LIB = true;
+          try {
+            Brotli4jLoader.ensureAvailability();
+            BrotliCodec.LOADED_NATIVE_LIB = true;
+          } catch (Throwable throwable) {
+            if (throwable instanceof Error) {
+              throw (Error) throwable;
+            } else if (throwable instanceof RuntimeException) {
+              throw (RuntimeException) throwable;
+            } else {
+              throw new RuntimeException(throwable);
+            }
+          }
         }
       }
     }

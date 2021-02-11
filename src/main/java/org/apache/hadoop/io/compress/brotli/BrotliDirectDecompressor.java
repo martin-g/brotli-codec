@@ -22,6 +22,7 @@ package org.apache.hadoop.io.compress.brotli;
 import com.aayushatharva.brotli4j.decoder.Decoder;
 import com.aayushatharva.brotli4j.decoder.DecoderJNI;
 import com.aayushatharva.brotli4j.decoder.DirectDecompress;
+import org.apache.hadoop.io.compress.BrotliCodec;
 import org.apache.hadoop.io.compress.DirectDecompressor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +34,10 @@ public class BrotliDirectDecompressor implements DirectDecompressor {
 
   private static final Logger LOG = LoggerFactory.getLogger(BrotliDirectDecompressor.class);
 
+  static {
+    BrotliCodec.loadNatives();
+  }
+
   @Override
   public void decompress(ByteBuffer src, ByteBuffer dst) throws IOException {
     final byte[] compressed = src.array();
@@ -40,9 +45,9 @@ public class BrotliDirectDecompressor implements DirectDecompressor {
     final DecoderJNI.Status status = result.getResultStatus();
     if (status == DecoderJNI.Status.DONE) {
       dst.put(result.getDecompressedData());
+      src.position(src.limit());
     } else {
       LOG.error("An error occurred while decompressing data: {}", status);
     }
-
   }
 }
