@@ -19,18 +19,16 @@
 
 package org.apache.hadoop.io.compress.brotli;
 
-import com.google.common.base.Joiner;
+import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.compress.BrotliCodec;
 import org.apache.hadoop.io.compress.Compressor;
-import org.meteogroup.jbrotli.Brotli;
-import org.meteogroup.jbrotli.BrotliStreamCompressor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 public class BrotliCompressor implements Compressor {
 
@@ -38,13 +36,12 @@ public class BrotliCompressor implements Compressor {
 
   private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocateDirect(0);
 
-  private final StackTraceElement[] stack;
+//  private final StackTraceElement[] stack;
 
-  private Brotli.Parameter parameter = new Brotli.Parameter()
-      .setMode(Brotli.Mode.GENERIC)
+  private Encoder.Parameters parameter = new Encoder.Parameters()
+//      .setMode(Brotli.Mode.GENERIC)
       .setQuality(1);
 
-  private BrotliStreamCompressor compressor = null;
   private int maxBufferSize = 0;
   // Using a direct byte buffer as input prevents a JNI-side copy
   private ByteBuffer inBuffer = ByteBuffer.allocateDirect(8192);
@@ -57,7 +54,7 @@ public class BrotliCompressor implements Compressor {
 
   public BrotliCompressor(Configuration conf) {
     reinit(conf);
-    this.stack = Thread.currentThread().getStackTrace();
+//    this.stack = Thread.currentThread().getStackTrace();
   }
 
   private boolean isOutputBufferEmpty() {
@@ -132,7 +129,13 @@ public class BrotliCompressor implements Compressor {
       last = false;
     }
 
-    this.outBuffer = compressor.compressNext(toCompress, last && flush);
+    final byte[] compressed;
+    try {
+      compressed = Encoder.compress(toCompress.array(), parameter);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    this.outBuffer.put(compressed);
 
     inBuffer.position(toCompress.position());
     if (!inBuffer.hasRemaining()) {
@@ -203,8 +206,7 @@ public class BrotliCompressor implements Compressor {
         "Reused without consuming all input");
     Preconditions.checkState(isOutputBufferEmpty(),
         "Reused without consuming all output");
-    this.compressor = new BrotliStreamCompressor(parameter);
-    this.maxBufferSize = compressor.getMaxInputBufferSize();
+//    this.maxBufferSize = compressor.getMaxInputBufferSize();
     this.inBuffer.clear();
     this.outBuffer = EMPTY_BUFFER;
     this.compressing = false;
@@ -221,24 +223,18 @@ public class BrotliCompressor implements Compressor {
     } else if (!isOutputBufferEmpty()) {
       LOG.warn("Closed without consuming all output");
     }
-    if (compressor != null) {
-      compressor.close();
-      this.compressor = null;
-    }
   }
 
   @Override
   public void reinit(Configuration conf) {
     if (conf != null) {
-      this.parameter = parameter
-          .setMode(conf.getBoolean(BrotliCodec.IS_TEXT_PROP, false) ?
-              Brotli.Mode.TEXT : Brotli.Mode.GENERIC)
-          .setQuality(conf.getInt(BrotliCodec.QUALITY_LEVEL_PROP, 1));
+      this.parameter
+          .setQuality(conf.getInt(BrotliCodec.QUALITY_LEVEL_PROP, -1))
+          .setWindow(conf.getInt(BrotliCodec.LZ_WINDOW_SIZE_PROP, -1));
+      this.maxBufferSize = conf.getInt(BrotliCodec.MAX_BUFFER_SIZE, 16384);
     }
-    this.compressor = new BrotliStreamCompressor(parameter);
-    this.maxBufferSize = compressor.getMaxInputBufferSize();
   }
-
+/*
   @Override
   protected void finalize() throws Throwable {
     super.finalize();
@@ -246,7 +242,7 @@ public class BrotliCompressor implements Compressor {
       end();
       String trace = Joiner.on("\n\t").join(
           Arrays.copyOfRange(stack, 1, stack.length));
-      LOG.warn("Unclosed Brotli compression stream created by:\n\t" + trace);
+      LOG.warn("Unclosed Brotli compression stream created by:\n\t{}", trace);
     }
-  }
+  }*/
 }

@@ -19,25 +19,31 @@
 
 package org.apache.hadoop.io.compress;
 
+import com.aayushatharva.brotli4j.Brotli4jLoader;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.io.compress.brotli.BrotliCompressor;
 import org.apache.hadoop.io.compress.brotli.BrotliDecompressor;
-import org.meteogroup.jbrotli.libloader.BrotliLibraryLoader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 public class BrotliCodec extends Configured implements CompressionCodec {
+  /**
+   * @deprecated Not supported by Brotli4j library
+   */
+  @Deprecated
   public static final String IS_TEXT_PROP = "compression.brotli.is-text";
   public static final String QUALITY_LEVEL_PROP = "compression.brotli.quality";
+  public static final String LZ_WINDOW_SIZE_PROP = "compression.brotli.lzwin";
+  public static final String MAX_BUFFER_SIZE = "compression.brotli.max_input_size";
 
   private static boolean LOADED_NATIVE_LIB = false;
 
-  public BrotliCodec() {
+  public BrotliCodec() throws Throwable {
     if (!BrotliCodec.LOADED_NATIVE_LIB) {
       synchronized (BrotliCodec.class) {
         if (!BrotliCodec.LOADED_NATIVE_LIB) {
-          BrotliLibraryLoader.loadBrotli();
+          Brotli4jLoader.ensureAvailability();
           BrotliCodec.LOADED_NATIVE_LIB = true;
         }
       }

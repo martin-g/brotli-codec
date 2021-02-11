@@ -19,12 +19,15 @@
 
 package org.apache.hadoop.io.compress.brotli;
 
+import com.aayushatharva.brotli4j.decoder.BrotliInputStream;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.compress.Decompressor;
-import org.meteogroup.jbrotli.BrotliStreamDeCompressor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -35,34 +38,32 @@ public class BrotliDecompressor implements Decompressor {
 
   private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
-  private final ByteBuffer outBuffer;
+  private final ByteArrayOutputStream outBuffer;
   private final StackTraceElement[] stack;
 
-  private BrotliStreamDeCompressor decompressor = new BrotliStreamDeCompressor();
-  private ByteBuffer inBuffer = EMPTY_BUFFER;
+  private BrotliInputStream inBuffer = null;
   private long totalBytesIn = 0;
   private long totalBytesOut = 0;
 
   public BrotliDecompressor() {
-    this.outBuffer = ByteBuffer.allocate(8192);
-    outBuffer.limit(0); // must be empty
+    this.outBuffer = new ByteArrayOutputStream();
     this.stack = Thread.currentThread().getStackTrace();
   }
 
   private boolean hasMoreOutput() {
-    return !isOutputBufferEmpty() || decompressor.needsMoreOutput();
+    return !isOutputBufferEmpty() /*|| decompressor.needsMoreOutput()*/;
   }
 
   private boolean hasMoreInput() {
-    return (inBuffer.remaining() > 0);
+    return (inBuffer.available() > 0);
   }
 
   private boolean isOutputBufferEmpty() {
-    return (outBuffer.remaining() == 0);
+    return (outBuffer.size() == 0);
   }
 
   private boolean isInputBufferEmpty() {
-    return (inBuffer.remaining() == 0);
+    return !hasMoreInput();
   }
 
   @Override
@@ -70,7 +71,7 @@ public class BrotliDecompressor implements Decompressor {
     Preconditions.checkState(isInputBufferEmpty(),
         "[BUG] Cannot call setInput with existing unconsumed input.");
     // this must use a ByteBuffer because not all of the bytes must be consumed
-    this.inBuffer = ByteBuffer.wrap(inBytes, off, len);
+    this.inBuffer = new BrotliInputStream(new ByteArrayInputStream(inBytes, off, len));
     getMoreOutput();
     totalBytesIn += len;
   }
@@ -78,13 +79,21 @@ public class BrotliDecompressor implements Decompressor {
   private void getMoreOutput() {
     Preconditions.checkState(isOutputBufferEmpty(),
         "[BUG] Cannot call getMoreOutput without consuming all output.");
-    outBuffer.clear();
-    decompressor.deCompress(inBuffer, outBuffer);
+    outBuffer.reset();
+    try {
+      byte[] buf = new byte[4096];
+      int len;
+      while ((len = inBuffer.read(buf)) != 0) {
+        outBuffer.write(buf, 0, len);
+      }
+    } catch (IOException iox) {
+      LOG.error("An error occurred while decompressing", iox);
+    }
   }
 
   @Override
   public boolean needsInput() {
-    return isInputBufferEmpty() && decompressor.needsMoreInput() && !hasMoreOutput();
+    return isInputBufferEmpty() /*&& inBuffer.needsMoreInput()*/ && !hasMoreOutput();
   }
 
   @Override
@@ -99,7 +108,7 @@ public class BrotliDecompressor implements Decompressor {
 
   @Override
   public boolean finished() {
-    return isInputBufferEmpty() && !decompressor.needsMoreInput() && !hasMoreOutput();
+    return isInputBufferEmpty() && /*!decompressor.needsMoreInput() &&*/ !hasMoreOutput();
   }
 
   @Override
@@ -130,12 +139,12 @@ public class BrotliDecompressor implements Decompressor {
 
   @Override
   public int getRemaining() {
-    int available = outBuffer.remaining();
+    int available = outBuffer.size();
     if (available > 0) {
       return available;
     } else if (decompressor.needsMoreOutput()) {
       getMoreOutput();
-      return outBuffer.remaining();
+      return outBuffer.size();
     } else if (decompressor.needsMoreInput()) {
       return 1;
     }
@@ -147,9 +156,8 @@ public class BrotliDecompressor implements Decompressor {
     Preconditions.checkState(isOutputBufferEmpty(),
         "Reused without consuming all output");
     end();
-    this.decompressor = new BrotliStreamDeCompressor();
-    outBuffer.limit(0);
-    this.inBuffer = EMPTY_BUFFER;
+    outBuffer.reset();
+    this.inBuffer = null;
     this.totalBytesIn = 0;
     this.totalBytesOut = 0;
   }
@@ -159,16 +167,29 @@ public class BrotliDecompressor implements Decompressor {
     if (!isOutputBufferEmpty()) {
       LOG.warn("Closed without consuming all output");
     }
-    if (decompressor != null) {
-      decompressor.close();
-      this.decompressor = null;
+    if (inBuffer != null) {
+      try {
+        inBuffer.close();
+      } catch (IOException iox) {
+        LOG.error("An error occurred while closing the input stream", iox);
+      } finally {
+        inBuffer = null;
+      }
+    }
+
+    if (outBuffer != null) {
+      try {
+        outBuffer.close();
+      } catch (IOException iox) {
+        LOG.error("An error occurred while closing the output stream", iox);
+      }
     }
   }
 
   @Override
   protected void finalize() throws Throwable {
     super.finalize();
-    if (decompressor != null) {
+    if (inBuffer != null) {
       end();
       String trace = Joiner.on("\n\t").join(
           Arrays.copyOfRange(stack, 1, stack.length));

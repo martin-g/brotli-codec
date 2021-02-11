@@ -19,16 +19,30 @@
 
 package org.apache.hadoop.io.compress.brotli;
 
+import com.aayushatharva.brotli4j.decoder.Decoder;
+import com.aayushatharva.brotli4j.decoder.DecoderJNI;
+import com.aayushatharva.brotli4j.decoder.DirectDecompress;
 import org.apache.hadoop.io.compress.DirectDecompressor;
-import org.meteogroup.jbrotli.BrotliStreamDeCompressor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class BrotliDirectDecompressor implements DirectDecompressor {
-  private final BrotliStreamDeCompressor decompressor = new BrotliStreamDeCompressor();
+
+  private static final Logger LOG = LoggerFactory.getLogger(BrotliDirectDecompressor.class);
 
   @Override
   public void decompress(ByteBuffer src, ByteBuffer dst) throws IOException {
-    decompressor.deCompress(src, dst);
+    final byte[] compressed = src.array();
+    final DirectDecompress result = Decoder.decompress(compressed);
+    final DecoderJNI.Status status = result.getResultStatus();
+    if (status == DecoderJNI.Status.DONE) {
+      dst.put(result.getDecompressedData());
+    } else {
+      LOG.error("An error occurred while decompressing data: {}", status);
+    }
+
   }
 }
