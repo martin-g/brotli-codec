@@ -16,7 +16,6 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
-
 package org.apache.hadoop.io.compress.brotli;
 
 import com.google.common.base.Preconditions;
@@ -42,25 +41,9 @@ public class BrotliDecompressor implements Decompressor {
   private long totalBytesOut = 0;
 
   public BrotliDecompressor() {
-    this.outBuffer = ByteBuffer.allocate(BrotliCodec.DEFAULT_MAX_BUFFER_SIZE);
+    this.outBuffer = ByteBuffer.allocate(BrotliCodec.defaultMaxBufferSize);
     outBuffer.limit(0); // must be empty
 //    this.stack = Thread.currentThread().getStackTrace();
-  }
-
-  private boolean hasMoreOutput() {
-    return !isOutputBufferEmpty() /*|| decompressor.needsMoreOutput()*/;
-  }
-
-  private boolean hasMoreInput() {
-    return inBuffer.remaining() > 0;
-  }
-
-  private boolean isOutputBufferEmpty() {
-    return outBuffer.remaining() == 0;
-  }
-
-  private boolean isInputBufferEmpty() {
-    return (inBuffer.remaining() == 0);
   }
 
   @Override
@@ -114,7 +97,7 @@ public class BrotliDecompressor implements Decompressor {
     }
 
     while (bytesCopied < len && hasMoreOutput()) {
-      int bytesToCopy = Math.min(len - bytesCopied, outBuffer.remaining());
+      int bytesToCopy = Math.min(len - bytesCopied, outBuffer.position());
       outBuffer.flip();
       outBuffer.get(out, currentOffset, bytesToCopy);
       currentOffset += bytesToCopy;
@@ -166,6 +149,30 @@ public class BrotliDecompressor implements Decompressor {
 //      decompressor.close();
 //      this.decompressor = null;
 //    }
+  }
+
+  public long getTotalBytesIn() {
+    return totalBytesIn;
+  }
+
+  public long getTotalBytesOut() {
+    return totalBytesOut;
+  }
+
+  private boolean hasMoreOutput() {
+    return !isOutputBufferEmpty() /*|| decompressor.needsMoreOutput()*/;
+  }
+
+  private boolean hasMoreInput() {
+    return inBuffer.remaining() > 0;
+  }
+
+  private boolean isOutputBufferEmpty() {
+    return outBuffer.remaining() == 0;
+  }
+
+  private boolean isInputBufferEmpty() {
+    return (inBuffer.remaining() == 0);
   }
 /*
   @Override

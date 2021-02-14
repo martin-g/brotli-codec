@@ -42,7 +42,7 @@ public class BrotliCompressor implements Compressor {
 //      .setMode(Brotli.Mode.GENERIC)
       .setQuality(1);
 
-  private int maxBufferSize = BrotliCodec.DEFAULT_MAX_BUFFER_SIZE;
+  private int maxBufferSize = BrotliCodec.defaultMaxBufferSize;
   // Using a direct byte buffer as input prevents a JNI-side copy
   private ByteBuffer inBuffer = ByteBuffer.allocateDirect(8192);
   private ByteBuffer outBuffer = EMPTY_BUFFER;
@@ -231,7 +231,7 @@ public class BrotliCompressor implements Compressor {
     this.parameter
             .setQuality(BrotliCodec.DEFAULT_QUALITY)
             .setWindow(BrotliCodec.DEFAULT_LZ_WINDOW_SIZE);
-    this.maxBufferSize = BrotliCodec.DEFAULT_MAX_BUFFER_SIZE;
+    this.maxBufferSize = BrotliCodec.defaultMaxBufferSize;
 
     if (conf != null) {
       this.parameter

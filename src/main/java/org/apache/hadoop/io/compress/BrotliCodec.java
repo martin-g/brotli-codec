@@ -38,13 +38,10 @@ public class BrotliCodec extends Configured implements CompressionCodec {
   public static final String MAX_BUFFER_SIZE_PROP = "compression.brotli.max_input_size";
   public static final int DEFAULT_QUALITY = -1;
   public static final int DEFAULT_LZ_WINDOW_SIZE = -1;
-  public static final int DEFAULT_MAX_BUFFER_SIZE = 16384;
+  public static int defaultMaxBufferSize = 16384;
 
   static {
     loadNatives();
-  }
-
-  public BrotliCodec() {
   }
 
   public static void loadNatives() {
