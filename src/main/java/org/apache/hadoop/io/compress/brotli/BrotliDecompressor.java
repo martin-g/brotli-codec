@@ -20,6 +20,7 @@
 package org.apache.hadoop.io.compress.brotli;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.io.compress.BrotliCodec;
 import org.apache.hadoop.io.compress.Decompressor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +42,7 @@ public class BrotliDecompressor implements Decompressor {
   private long totalBytesOut = 0;
 
   public BrotliDecompressor() {
-    this.outBuffer = ByteBuffer.allocate(8192);
+    this.outBuffer = ByteBuffer.allocate(BrotliCodec.DEFAULT_MAX_BUFFER_SIZE);
     outBuffer.limit(0); // must be empty
 //    this.stack = Thread.currentThread().getStackTrace();
   }

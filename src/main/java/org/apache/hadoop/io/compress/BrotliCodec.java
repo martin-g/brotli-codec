@@ -35,9 +35,10 @@ public class BrotliCodec extends Configured implements CompressionCodec {
   public static final String IS_TEXT_PROP = "compression.brotli.is-text";
   public static final String QUALITY_LEVEL_PROP = "compression.brotli.quality";
   public static final String LZ_WINDOW_SIZE_PROP = "compression.brotli.lzwin";
-  public static final String MAX_BUFFER_SIZE = "compression.brotli.max_input_size";
-
-  private static boolean LOADED_NATIVE_LIB = false;
+  public static final String MAX_BUFFER_SIZE_PROP = "compression.brotli.max_input_size";
+  public static final int DEFAULT_QUALITY = -1;
+  public static final int DEFAULT_LZ_WINDOW_SIZE = -1;
+  public static final int DEFAULT_MAX_BUFFER_SIZE = 16384;
 
   static {
     loadNatives();
@@ -47,22 +48,15 @@ public class BrotliCodec extends Configured implements CompressionCodec {
   }
 
   public static void loadNatives() {
-    if (!BrotliCodec.LOADED_NATIVE_LIB) {
-      synchronized (BrotliCodec.class) {
-        if (!BrotliCodec.LOADED_NATIVE_LIB) {
-          try {
-            Brotli4jLoader.ensureAvailability();
-            BrotliCodec.LOADED_NATIVE_LIB = true;
-          } catch (Throwable throwable) {
-            if (throwable instanceof Error) {
-              throw (Error) throwable;
-            } else if (throwable instanceof RuntimeException) {
-              throw (RuntimeException) throwable;
-            } else {
-              throw new RuntimeException(throwable);
-            }
-          }
-        }
+    try {
+      Brotli4jLoader.ensureAvailability();
+    } catch (Throwable throwable) {
+      if (throwable instanceof Error) {
+        throw (Error) throwable;
+      } else if (throwable instanceof RuntimeException) {
+        throw (RuntimeException) throwable;
+      } else {
+        throw new RuntimeException(throwable);
       }
     }
   }

@@ -42,7 +42,7 @@ public class BrotliCompressor implements Compressor {
 //      .setMode(Brotli.Mode.GENERIC)
       .setQuality(1);
 
-  private int maxBufferSize = 0;
+  private int maxBufferSize = BrotliCodec.DEFAULT_MAX_BUFFER_SIZE;
   // Using a direct byte buffer as input prevents a JNI-side copy
   private ByteBuffer inBuffer = ByteBuffer.allocateDirect(8192);
   private ByteBuffer outBuffer = EMPTY_BUFFER;
@@ -123,21 +123,19 @@ public class BrotliCompressor implements Compressor {
     }
 
     ByteBuffer toCompress = inBuffer.duplicate();
-//    boolean last = true;
-//    if (toCompress.remaining() > maxBufferSize) {
-//      toCompress.limit(toCompress.position() + maxBufferSize);
-//      last = false;
-//    }
+    while (toCompress.remaining() > 0) {
+      int toRead = Math.min(toCompress.remaining(), maxBufferSize);
 
-    final byte[] compressed;
-    try {
-      byte[] dst = new byte[toCompress.limit()];
-      toCompress.get(dst);
-      compressed = Encoder.compress(dst, parameter);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
+      final byte[] compressed;
+      try {
+        byte[] dst = new byte[toRead];
+        toCompress.get(dst, 0, toRead);
+        compressed = Encoder.compress(dst, parameter);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+      this.outBuffer.put(compressed);
     }
-    this.outBuffer.put(compressed);
 
     inBuffer.position(toCompress.position());
     if (!inBuffer.hasRemaining()) {
@@ -223,7 +221,7 @@ public class BrotliCompressor implements Compressor {
   public void end() {
     if (compressing || inBuffer.position() > 0) {
       LOG.warn("Closed without consuming all input");
-    } else if (!isOutputBufferEmpty()) {
+    } else if (outBuffer.remaining() > 0) {
       LOG.warn("Closed without consuming all output");
     }
   }
@@ -231,17 +229,17 @@ public class BrotliCompressor implements Compressor {
   @Override
   public void reinit(Configuration conf) {
     this.parameter
-            .setQuality(-1)
-            .setWindow(-1);
-    this.maxBufferSize = 16384;
+            .setQuality(BrotliCodec.DEFAULT_QUALITY)
+            .setWindow(BrotliCodec.DEFAULT_LZ_WINDOW_SIZE);
+    this.maxBufferSize = BrotliCodec.DEFAULT_MAX_BUFFER_SIZE;
 
     if (conf != null) {
       this.parameter
-          .setQuality(conf.getInt(BrotliCodec.QUALITY_LEVEL_PROP, -1))
-          .setWindow(conf.getInt(BrotliCodec.LZ_WINDOW_SIZE_PROP, -1));
-      this.maxBufferSize = conf.getInt(BrotliCodec.MAX_BUFFER_SIZE, this.maxBufferSize);
+          .setQuality(conf.getInt(BrotliCodec.QUALITY_LEVEL_PROP, BrotliCodec.DEFAULT_QUALITY))
+          .setWindow(conf.getInt(BrotliCodec.LZ_WINDOW_SIZE_PROP, BrotliCodec.DEFAULT_LZ_WINDOW_SIZE));
+      this.maxBufferSize = conf.getInt(BrotliCodec.MAX_BUFFER_SIZE_PROP, this.maxBufferSize);
     }
-    this.outBuffer = ByteBuffer.allocateDirect(this.maxBufferSize);
+    this.outBuffer = ByteBuffer.allocateDirect(16384);
   }
 /*
   @Override

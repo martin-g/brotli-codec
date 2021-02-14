@@ -16,7 +16,6 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
-
 package org.apache.hadoop.io.compress.brotli;
 
 import com.aayushatharva.brotli4j.decoder.Decoder;
@@ -40,14 +39,20 @@ public class BrotliDirectDecompressor implements DirectDecompressor {
 
   @Override
   public void decompress(ByteBuffer src, ByteBuffer dst) throws IOException {
-    final byte[] compressed = src.array();
-    final DirectDecompress result = Decoder.decompress(compressed);
-    final DecoderJNI.Status status = result.getResultStatus();
-    if (status == DecoderJNI.Status.DONE) {
-      dst.put(result.getDecompressedData());
-      src.position(src.limit());
-    } else {
-      LOG.error("An error occurred while decompressing data: {}", status);
+
+    int toRead;
+    while ((toRead = Math.min(src.remaining(), /*BrotliCodec.DEFAULT_MAX_BUFFER_SIZE*/ Integer.MAX_VALUE)) != 0) {
+      byte[] compressed = new byte[toRead];
+      src.get(compressed, 0, toRead);
+      final DirectDecompress result = Decoder.decompress(compressed);
+      final DecoderJNI.Status status = result.getResultStatus();
+      if (status == DecoderJNI.Status.DONE) {
+        dst.put(result.getDecompressedData());
+        src.position(src.limit());
+      } else {
+        LOG.error("An error occurred while decompressing data: {}", status);
+        break;
+      }
     }
   }
 }
