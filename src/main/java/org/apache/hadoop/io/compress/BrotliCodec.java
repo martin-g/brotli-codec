@@ -20,6 +20,7 @@
 package org.apache.hadoop.io.compress;
 
 import com.aayushatharva.brotli4j.Brotli4jLoader;
+import com.aayushatharva.brotli4j.encoder.Encoder;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.io.compress.brotli.BrotliCompressor;
 import org.apache.hadoop.io.compress.brotli.BrotliDecompressor;
@@ -28,14 +29,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 public class BrotliCodec extends Configured implements CompressionCodec {
-  /**
-   * @deprecated Not supported by Brotli4j library
-   */
-  @Deprecated
-  public static final String IS_TEXT_PROP = "compression.brotli.is-text";
+
+  public static final String MODE_PROP = "compression.brotli.is-text";
   public static final String QUALITY_LEVEL_PROP = "compression.brotli.quality";
   public static final String LZ_WINDOW_SIZE_PROP = "compression.brotli.lzwin";
   public static final String MAX_BUFFER_SIZE_PROP = "compression.brotli.max_input_size";
+  public static final Encoder.Mode DEFAULT_MODE = Encoder.Mode.GENERIC;
   public static final int DEFAULT_QUALITY = -1;
   public static final int DEFAULT_LZ_WINDOW_SIZE = -1;
   public static int defaultMaxBufferSize = 16384;

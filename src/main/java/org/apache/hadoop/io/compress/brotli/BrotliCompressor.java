@@ -38,9 +38,7 @@ public class BrotliCompressor implements Compressor {
 
 //  private final StackTraceElement[] stack;
 
-  private Encoder.Parameters parameter = new Encoder.Parameters()
-//      .setMode(Brotli.Mode.GENERIC)
-      .setQuality(1);
+  private final Encoder.Parameters parameter = new Encoder.Parameters();
 
   private int maxBufferSize = BrotliCodec.defaultMaxBufferSize;
   // Using a direct byte buffer as input prevents a JNI-side copy
@@ -229,12 +227,14 @@ public class BrotliCompressor implements Compressor {
   @Override
   public void reinit(Configuration conf) {
     this.parameter
+            .setMode(BrotliCodec.DEFAULT_MODE)
             .setQuality(BrotliCodec.DEFAULT_QUALITY)
             .setWindow(BrotliCodec.DEFAULT_LZ_WINDOW_SIZE);
     this.maxBufferSize = BrotliCodec.defaultMaxBufferSize;
 
     if (conf != null) {
       this.parameter
+          .setMode(Encoder.Mode.of(conf.get(BrotliCodec.MODE_PROP, BrotliCodec.DEFAULT_MODE.name())))
           .setQuality(conf.getInt(BrotliCodec.QUALITY_LEVEL_PROP, BrotliCodec.DEFAULT_QUALITY))
           .setWindow(conf.getInt(BrotliCodec.LZ_WINDOW_SIZE_PROP, BrotliCodec.DEFAULT_LZ_WINDOW_SIZE));
       this.maxBufferSize = conf.getInt(BrotliCodec.MAX_BUFFER_SIZE_PROP, this.maxBufferSize);

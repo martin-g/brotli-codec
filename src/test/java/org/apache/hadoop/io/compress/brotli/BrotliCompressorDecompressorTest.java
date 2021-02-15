@@ -1,5 +1,7 @@
 package org.apache.hadoop.io.compress.brotli;
 
+import com.aayushatharva.brotli4j.encoder.Encoder;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.compress.BrotliCodec;
 import org.apache.hadoop.io.compress.Compressor;
@@ -19,6 +21,9 @@ class BrotliDecompressorTest {
 		BrotliCodec codec = new BrotliCodec();
 
 		Compressor compressor = codec.createCompressor();
+		Configuration config = new Configuration(false);
+		config.set(BrotliCodec.MODE_PROP, Encoder.Mode.TEXT.name());
+		compressor.reinit(config);
 
 		InputStream textStream = BrotliDirectDecompressorTest.class.getResourceAsStream("/Words.txt");
 		byte[] textBytes = new byte[textStream.available()];
