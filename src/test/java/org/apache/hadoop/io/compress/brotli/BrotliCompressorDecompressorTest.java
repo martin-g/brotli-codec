@@ -14,7 +14,7 @@ import java.io.InputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class BrotliDecompressorTest {
+class BrotliCompressorDecompressorTest {
 
 	@Test
 	void decompress() throws IOException {

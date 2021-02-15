@@ -51,7 +51,7 @@ public class BrotliDecompressor implements Decompressor {
   @Override
   public void setInput(byte[] inBytes, int off, int len) {
     Preconditions.checkState(isInputBufferEmpty(),
-                             "[BUG] Cannot call setInput with existing unconsumed input.");
+             "[BUG] Cannot call setInput with existing unconsumed input.");
     // this must use a ByteBuffer because not all of the bytes must be consumed
     this.inBuffer = ByteBuffer.wrap(inBytes, off, len);
     getMoreOutput();
@@ -60,7 +60,7 @@ public class BrotliDecompressor implements Decompressor {
 
   private void getMoreOutput() {
     Preconditions.checkState(isOutputBufferEmpty(),
-                             "[BUG] Cannot call getMoreOutput without consuming all output.");
+              "[BUG] Cannot call getMoreOutput without consuming all output.");
     outBuffer.clear();
     try {
       new BrotliDirectDecompressor().decompress(inBuffer, outBuffer);
@@ -71,7 +71,7 @@ public class BrotliDecompressor implements Decompressor {
 
   @Override
   public boolean needsInput() {
-    return isInputBufferEmpty() /*&& decompressor.needsMoreInput()*/ && !hasMoreOutput();
+    return isInputBufferEmpty() && !hasMoreOutput();
   }
 
   @Override
@@ -86,7 +86,7 @@ public class BrotliDecompressor implements Decompressor {
 
   @Override
   public boolean finished() {
-    return isInputBufferEmpty() /*&& !decompressor.needsMoreInput()*/ && !hasMoreOutput();
+    return isInputBufferEmpty() && !hasMoreOutput();
   }
 
   @Override
@@ -94,7 +94,7 @@ public class BrotliDecompressor implements Decompressor {
     int bytesCopied = 0;
     int currentOffset = off;
 
-    if (isOutputBufferEmpty() && (hasMoreInput() /*|| decompressor.needsMoreOutput()*/)) {
+    if (isOutputBufferEmpty() && (hasMoreInput())) {
       getMoreOutput();
     }
 
@@ -104,7 +104,7 @@ public class BrotliDecompressor implements Decompressor {
       outBuffer.get(out, currentOffset, bytesToCopy);
       currentOffset += bytesToCopy;
 
-      if (isOutputBufferEmpty() && (hasMoreInput() /*|| decompressor.needsMoreOutput()*/)) {
+      if (isOutputBufferEmpty() && (hasMoreInput())) {
         getMoreOutput();
       }
 
@@ -121,11 +121,6 @@ public class BrotliDecompressor implements Decompressor {
     int available = outBuffer.remaining();
     if (available > 0) {
       return available;
-//    } else if (decompressor.needsMoreOutput()) {
-//      getMoreOutput();
-//      return outBuffer.remaining();
-//    } else if (decompressor.needsMoreInput()) {
-//      return 1;
     }
     return 0;
   }
@@ -133,9 +128,8 @@ public class BrotliDecompressor implements Decompressor {
   @Override
   public void reset() {
     Preconditions.checkState(isOutputBufferEmpty(),
-                             "Reused without consuming all output");
+              "Reused without consuming all output");
     end();
-//    this.decompressor = new BrotliStreamDeCompressor();
     outBuffer.limit(0);
     this.inBuffer = EMPTY_BUFFER;
     this.totalBytesIn = 0;
@@ -147,10 +141,6 @@ public class BrotliDecompressor implements Decompressor {
     if (!isOutputBufferEmpty()) {
       LOG.warn("Closed without consuming all output");
     }
-//    if (decompressor != null) {
-//      decompressor.close();
-//      this.decompressor = null;
-//    }
   }
 
   public long getTotalBytesIn() {
@@ -170,11 +160,11 @@ public class BrotliDecompressor implements Decompressor {
   }
 
   private boolean isOutputBufferEmpty() {
-    return outBuffer.remaining() == 0;
+    return outBuffer.position() == 0;
   }
 
   private boolean isInputBufferEmpty() {
-    return (inBuffer.remaining() == 0);
+    return inBuffer.position() == 0;
   }
 
   @Override

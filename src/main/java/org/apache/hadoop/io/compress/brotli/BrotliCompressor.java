@@ -221,7 +221,7 @@ public class BrotliCompressor implements Compressor {
   public void end() {
     if (compressing || inBuffer.position() > 0) {
       LOG.warn("Closed without consuming all input");
-    } else if (outBuffer.hasRemaining()) {
+    } else if (hasMoreOutput()) {
       LOG.warn("Closed without consuming all output");
     }
   }
@@ -247,6 +247,7 @@ public class BrotliCompressor implements Compressor {
   @Override
   protected void finalize() throws Throwable {
     super.finalize();
+
     if (hasMoreOutput()) {
       String trace = Joiner.on("\n\t").join(Arrays.copyOfRange(stack, 1, stack.length));
       LOG.warn("A compressor is being GC-ed without consuming all its output. Created at:\n\t{}", trace);
