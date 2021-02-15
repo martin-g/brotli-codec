@@ -18,6 +18,7 @@
  */
 package org.apache.hadoop.io.compress.brotli;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.compress.BrotliCodec;
 import org.apache.hadoop.io.compress.Decompressor;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class BrotliDecompressor implements Decompressor {
 
@@ -34,7 +36,7 @@ public class BrotliDecompressor implements Decompressor {
   private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
   private final ByteBuffer outBuffer;
-//  private final StackTraceElement[] stack;
+  private final StackTraceElement[] stack;
 
   private ByteBuffer inBuffer = EMPTY_BUFFER;
   private long totalBytesIn = 0;
@@ -43,7 +45,7 @@ public class BrotliDecompressor implements Decompressor {
   public BrotliDecompressor() {
     this.outBuffer = ByteBuffer.allocate(BrotliCodec.defaultMaxBufferSize);
     outBuffer.limit(0); // must be empty
-//    this.stack = Thread.currentThread().getStackTrace();
+    this.stack = Thread.currentThread().getStackTrace();
   }
 
   @Override
@@ -160,11 +162,11 @@ public class BrotliDecompressor implements Decompressor {
   }
 
   private boolean hasMoreOutput() {
-    return !isOutputBufferEmpty() /*|| decompressor.needsMoreOutput()*/;
+    return outBuffer.hasRemaining();
   }
 
   private boolean hasMoreInput() {
-    return inBuffer.remaining() > 0;
+    return inBuffer.hasRemaining();
   }
 
   private boolean isOutputBufferEmpty() {
@@ -174,15 +176,26 @@ public class BrotliDecompressor implements Decompressor {
   private boolean isInputBufferEmpty() {
     return (inBuffer.remaining() == 0);
   }
-/*
+
   @Override
   protected void finalize() throws Throwable {
     super.finalize();
-    if (decompressor != null) {
-      end();
-      String trace = Joiner.on("\n\t").join(
-              Arrays.copyOfRange(stack, 1, stack.length));
-      LOG.warn("Unclosed Brotli decompression stream created by:\n\t" + trace);
+
+    String message = null;
+    if (hasMoreInput()) {
+      message = "A decompressor is being GC-ed without consuming all its input";
     }
-  }*/
+    if (hasMoreOutput()) {
+      if (message == null) {
+        message = "A decompressor is being GC-ed without consuming all its output";
+      } else {
+        message += " and output";
+      }
+    }
+
+    if (message != null) {
+      String trace = Joiner.on("\n\t").join(Arrays.copyOfRange(stack, 1, stack.length));
+      LOG.warn("{}. Created at:\n\t{}", message, trace);
+    }
+  }
 }

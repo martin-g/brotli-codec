@@ -20,6 +20,7 @@
 package org.apache.hadoop.io.compress.brotli;
 
 import com.aayushatharva.brotli4j.encoder.Encoder;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.compress.BrotliCodec;
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class BrotliCompressor implements Compressor {
 
@@ -36,7 +38,7 @@ public class BrotliCompressor implements Compressor {
 
   private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocateDirect(0);
 
-//  private final StackTraceElement[] stack;
+  private final StackTraceElement[] stack;
 
   private final Encoder.Parameters parameter = new Encoder.Parameters();
 
@@ -52,7 +54,7 @@ public class BrotliCompressor implements Compressor {
 
   public BrotliCompressor(Configuration conf) {
     reinit(conf);
-//    this.stack = Thread.currentThread().getStackTrace();
+    this.stack = Thread.currentThread().getStackTrace();
   }
 
   private boolean isOutputBufferEmpty() {
@@ -205,7 +207,7 @@ public class BrotliCompressor implements Compressor {
         "Reused without consuming all input");
     Preconditions.checkState(isOutputBufferEmpty(),
         "Reused without consuming all output");
-//    this.maxBufferSize = compressor.getMaxInputBufferSize();
+
     this.inBuffer.clear();
     this.outBuffer = EMPTY_BUFFER;
     this.compressing = false;
@@ -219,7 +221,7 @@ public class BrotliCompressor implements Compressor {
   public void end() {
     if (compressing || inBuffer.position() > 0) {
       LOG.warn("Closed without consuming all input");
-    } else if (outBuffer.remaining() > 0) {
+    } else if (outBuffer.hasRemaining()) {
       LOG.warn("Closed without consuming all output");
     }
   }
@@ -241,15 +243,13 @@ public class BrotliCompressor implements Compressor {
     }
     this.outBuffer = ByteBuffer.allocateDirect(16384);
   }
-/*
+
   @Override
   protected void finalize() throws Throwable {
     super.finalize();
-    if (compressor != null) {
-      end();
-      String trace = Joiner.on("\n\t").join(
-          Arrays.copyOfRange(stack, 1, stack.length));
-      LOG.warn("Unclosed Brotli compression stream created by:\n\t{}", trace);
+    if (hasMoreOutput()) {
+      String trace = Joiner.on("\n\t").join(Arrays.copyOfRange(stack, 1, stack.length));
+      LOG.warn("A compressor is being GC-ed without consuming all its output. Created at:\n\t{}", trace);
     }
-  }*/
+  }
 }
